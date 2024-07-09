@@ -4,6 +4,8 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ProjectModule } from './project/project.module';
+import { KafkaConsumerManagerModule } from './kafka-consumer-manager/kafka-consumer-manager.module';
+import { LogSocketModule } from './log-socket/log-socket.module';
 
 @Module({
   imports: [
@@ -26,6 +28,10 @@ import { ProjectModule } from './project/project.module';
     }),
     
     ProjectModule,
+    
+    KafkaConsumerManagerModule,
+    
+    LogSocketModule,
   ],
   controllers: [AppController],
   providers: [AppService],

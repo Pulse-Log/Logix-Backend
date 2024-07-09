@@ -11,11 +11,11 @@ export class Groups extends AbstractEntity<Groups>{
     @Column()
     name: string;
 
-    @ManyToOne(()=>Project, {onDelete:'CASCADE'})
+    @ManyToOne(()=>Project, (pro)=>pro.groups, {onDelete:'CASCADE'})
     @JoinColumn()
     project_id: Project;
 
-    @OneToMany(()=>Identify, (id)=>id.group_id)
+    @OneToMany(()=>Identify, (id)=>id.group_id, {cascade: true})
     identify: Identify[]
 
 }

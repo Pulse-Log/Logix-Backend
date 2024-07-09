@@ -1,5 +1,7 @@
 export class CreateProjectDto {
     projectName: string;
-    connectionString: string;
+    bootstrapString: string;
+    username: string;
+    password: string;
 
 }

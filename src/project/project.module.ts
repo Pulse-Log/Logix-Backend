@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Project } from './entities/project.entity';
 import { Groups } from './entities/groups.entity';
 import { Identify } from './entities/identifications.entity';
+import { KafkaManager } from 'src/kafka-consumer-manager/kafka-manager.service';
 
 @Module({
   imports:[
@@ -12,5 +13,6 @@ import { Identify } from './entities/identifications.entity';
   ],
   controllers: [ProjectController],
   providers: [ProjectService],
+  exports: [ProjectService]
 })
 export class ProjectModule {}

@@ -11,8 +11,14 @@ export class Project extends AbstractEntity<Project>{
     name: string;
 
     @Column()
-    connection_string: string;
+    bootstrap_string: string;
 
-    @OneToMany(()=>Groups, (group)=>group.project_id)
+    @Column()
+    username: string;
+
+    @Column()
+    password: string;
+
+    @OneToMany(()=>Groups, (group)=>group.project_id, {cascade:true})
     groups: Groups[];
 }

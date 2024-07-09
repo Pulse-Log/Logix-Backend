@@ -1,11 +1,11 @@
 export class CreateProjectGroupDto {
-    groupName: string;
-    projectId: number;
-    identifications: CreateIdentificationGroupDto[];
+    name: string;
+    project_id: string;
+    identify: CreateIdentificationGroupDto[];
 }
 
 export class CreateIdentificationGroupDto {
-    topicName: string;
+    topic_name: string;
     key: string;
-    schema: JSON;
+    schema: Record<string, any>;
 }
