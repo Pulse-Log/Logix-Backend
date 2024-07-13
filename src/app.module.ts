@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ProjectModule } from './project/project.module';
 import { KafkaConsumerManagerModule } from './kafka-consumer-manager/kafka-consumer-manager.module';
 import { LogSocketModule } from './log-socket/log-socket.module';
+import { JwtStrategy } from './global-guard/jwt-strategy';
 
 @Module({
   imports: [
@@ -16,15 +17,12 @@ import { LogSocketModule } from './log-socket/log-socket.module';
     
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'myuser',
-      password: 'mypassword',
-      database: 'mydatabase',
+      url:'postgresql://lakshyabhati24:0oPaImQNi2rX@ep-crimson-firefly-70756794.ap-southeast-1.aws.neon.tech/logix-login?sslmode=require',
+      database: 'logix-login',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV==='development'? true : null,
       logging:true,
-      ssl: process.env.NODE_ENV==='production'? true : null
+      ssl: true,
     }),
     
     ProjectModule,
@@ -34,6 +32,6 @@ import { LogSocketModule } from './log-socket/log-socket.module';
     LogSocketModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, JwtStrategy],
 })
 export class AppModule {}

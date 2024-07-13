@@ -1,4 +1,4 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Groups } from "./groups.entity";
 import { AbstractEntity } from "src/helper/abstract.entity";
 
@@ -9,6 +9,12 @@ export class Project extends AbstractEntity<Project>{
 
     @Column()
     name: string;
+
+    @Column()
+    description: string;
+
+    @CreateDateColumn()
+    created_at: Date;
 
     @Column()
     bootstrap_string: string;

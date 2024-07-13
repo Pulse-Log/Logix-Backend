@@ -1,10 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, UseGuards, UseFilters } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateProjectGroupDto } from './dto/create-project-group.dto';
+import { JwtAuthGuard } from 'src/global-guard/jwt-auth.guard';
+import { HttpExceptionFilter } from 'src/helper/filter/exception.filter';
 
 @Controller('project')
+@UseFilters(HttpExceptionFilter)
+@UseGuards(JwtAuthGuard)
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 

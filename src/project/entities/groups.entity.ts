@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Project } from "./project.entity";
 import {Identify} from "./identifications.entity";
 import { AbstractEntity } from "src/helper/abstract.entity";
@@ -10,6 +10,12 @@ export class Groups extends AbstractEntity<Groups>{
 
     @Column()
     name: string;
+
+    @Column()
+    description: string;
+
+    @CreateDateColumn()
+    created_at: Date;
 
     @ManyToOne(()=>Project, (pro)=>pro.groups, {onDelete:'CASCADE'})
     @JoinColumn()
