@@ -17,8 +17,8 @@ import { JwtStrategy } from './global-guard/jwt-strategy';
     
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url:'postgresql://lakshyabhati24:0oPaImQNi2rX@ep-crimson-firefly-70756794.ap-southeast-1.aws.neon.tech/logix-login?sslmode=require',
-      database: 'logix-login',
+      url:'postgres://tsdbadmin:d3w97zzxqi34jszk@lrwt8m3wle.lsfokbxtud.tsdb.cloud.timescale.com:37767/tsdb?sslmode=require',
+      database: 'logix-db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV==='development'? true : null,
       logging:true,

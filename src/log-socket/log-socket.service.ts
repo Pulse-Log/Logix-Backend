@@ -13,8 +13,6 @@ export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
     constructor(private projectService: ProjectService, @Inject(forwardRef(()=>KafkaManager))private kafkaManager: KafkaManager){
         console.log("Initializing LogSocketService");
     }
-
-    private map = new Map<string, string>();
     
     @WebSocketServer()
     server: Server;
@@ -28,51 +26,52 @@ export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
 
     @SubscribeMessage('project')
     async connectProject(@ConnectedSocket() socket: Socket, @MessageBody() body: string) {
-        console.log(body["project_id"]+" "+body["user_id"]);
-        let val = this.map.get(socket.id);
-        if(val!==undefined){
-            console.log("Project changed");
-            await this.kafkaManager.removeConsumer(+val);
+        if (socket.rooms) {
+            const rooms = Array.from(socket.rooms);
+            for (const room of rooms) {
+                if (room !== socket.id) {
+                    await socket.leave(room);
+                }
+            }
         }
-        console.log("Project changed successfully");
-        this.map.set(socket.id, body["project_id"]);
-        const project = await this.projectService.findGroupsOfProject(+body["project_id"]);
+        console.log(body["projectId"]+" "+body["userId"]);
+        const project = await this.projectService.findGroupsOfProject(body["projectId"], body["userId"]);
         if(!project) {
             socket.emit('error', 'Project not found');
             socket.disconnect(true);
             return;
         }
-        this.kafkaManager.createConsumer(body["user_id"], +body["project_id"], project);
-        socket.join(body["project_id"]);
-        socket.data.userId = body["user_id"];
-        socket.data.projectId = body["project_id"];
+        if(!this.kafkaManager.checkRunningConsumer(body["projectId"])){
+            console.log("Creating new consumer");
+            await this.kafkaManager.createConsumer(body["userId"], body["projectId"], project);
+        }
+        socket.join(body["sId"]);
+        socket.data.userId = body["userId"];
+        socket.data.projectId = body["projectId"];
+        socket.data.sId = body["sId"];
     }
 
     async handleDisconnect(client: Socket) {
-        const project_id = client.data.projectId;
-        this.map.delete(client.id);
-        if(project_id){
-            await this.kafkaManager.removeConsumer(+project_id);
-            client.leave(project_id);
+        const sId = client.data.sId;
+        if(sId){
+            client.leave(sId);
             client.disconnect(true);
         }
     }
 
-    sendProjectInfoLogs(err: KafkaErrorDetails, projectId: string){
-        this.server.to(projectId).emit("project_info_log",err);
+    sendProjectInfoLogs(err: KafkaErrorDetails, sId: string[]){
+        console.log(err);
+        console.log(sId);
+        this.server.to(sId).emit("project_info_log",err);
     }
 
-    async forceDisconnect(project_id: string){
-        const sockets = await this.server.to(project_id).fetchSockets();
-        for(let socket of sockets){
-            this.map.delete(socket.id);
-        }
-        this.server.to(project_id).disconnectSockets(true);
+    async forceDisconnect(sId: string[]){
+        this.server.to(sId).disconnectSockets(true);
     }
 
 
-    sendLog(message: KafkaMessageDto, project_id: string){
-        this.server.to(project_id).emit("newLog", message);
+    sendLog(message: KafkaMessageDto, sId: string[]){
+        this.server.to(sId).emit("newLog", message);
     }
 
 }

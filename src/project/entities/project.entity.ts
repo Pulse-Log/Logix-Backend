@@ -1,11 +1,13 @@
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Groups } from "./groups.entity";
+import { Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Stack } from "./stack.entity";
 import { AbstractEntity } from "src/helper/abstract.entity";
+import { Source } from "./source.entity";
 
 @Entity()
 export class Project extends AbstractEntity<Project>{
-    @PrimaryGeneratedColumn('increment')
-    p_id: number; 
+    
+    @PrimaryGeneratedColumn('uuid')
+    projectId: string; 
 
     @Column()
     name: string;
@@ -13,18 +15,15 @@ export class Project extends AbstractEntity<Project>{
     @Column()
     description: string;
 
+    @Column()
+    userId: string;
+
     @CreateDateColumn()
-    created_at: Date;
+    createdAt: Date;
 
-    @Column()
-    bootstrap_string: string;
+    @OneToOne(()=>Source, (source)=>source.project, {cascade: true})
+    source: Source;
 
-    @Column()
-    username: string;
-
-    @Column()
-    password: string;
-
-    @OneToMany(()=>Groups, (group)=>group.project_id, {cascade:true})
-    groups: Groups[];
+    @OneToMany(()=>Stack, (group)=>group.project, {cascade:true})
+    stacks: Stack[];
 }
