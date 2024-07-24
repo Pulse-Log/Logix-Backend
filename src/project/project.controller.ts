@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, UseGuards, UseFilters } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Inject, UseGuards, UseFilters, Query } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { JwtAuthGuard } from 'src/global-guard/jwt-auth.guard';
@@ -8,6 +8,7 @@ import { CreateProjectStackDto } from './dto/create-project-stack.dto';
 import { CreateStackSignatureDto } from './dto/create-signature.dto';
 import { UpdateStackDto } from './dto/update-stack.dto';
 import { UpdateSignaturesDto } from './dto/update-signature.dto';
+import { GetUserProjectDto } from './dto/get-user-projects.dto';
 
 @Controller('project')
 @UseFilters(HttpExceptionFilter)
@@ -18,6 +19,14 @@ export class ProjectController {
   @Post('stack/new')
   createNewGroup(@Body() createIdentificationGroupDto: CreateProjectStackDto) {
     return this.projectService.createProjectGroups(createIdentificationGroupDto);
+  }
+  @Get('interfaces')
+  getAllInterfaces(){
+    return this.projectService.getAllInterfaces();
+  }
+  @Get()
+  getAllProjects(@Query() getUserProjectDto: GetUserProjectDto) {
+    return this.projectService.getUserProjects(getUserProjectDto);
   }
   @Post('stack/signature/new')
   createNewSignature(@Body() createSignature: CreateStackSignatureDto) {

@@ -13,5 +13,5 @@ export class UpdateProjectDto implements User {
 
 class UpdateSourceDto {
     configuration: Record<string, any>;
-    interfaceId: string;
+    interface: string;
 }

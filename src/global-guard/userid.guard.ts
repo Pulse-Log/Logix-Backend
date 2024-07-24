@@ -6,16 +6,22 @@ import { User } from './interface/userId.interface';
 export class UserIdGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request: Request = context.switchToHttp().getRequest();
+    const user: User = request.user as User;
     
-    const user: User = request.user as User; // Explicitly cast to User type
-    const userIdFromBody = request.body.userId;
+    let userIdFromRequest: string | undefined;
 
-    if (!userIdFromBody) {
-      throw new UnauthorizedException('User ID is required in the request body');
+    if (request.method === 'GET') {
+      userIdFromRequest = request.query.userId as string;
+    } else {
+      userIdFromRequest = request.body.userId;
     }
 
-    if (userIdFromBody !== user.userId) {
-      throw new UnauthorizedException('User ID in the body does not match the token');
+    if (!userIdFromRequest) {
+      throw new UnauthorizedException('User ID is required in the request');
+    }
+
+    if (userIdFromRequest !== user.userId) {
+      throw new UnauthorizedException('User ID in the request does not match the token');
     }
 
     return true;

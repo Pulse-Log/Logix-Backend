@@ -5,7 +5,7 @@ export class SourceDto{
     @IsNotEmpty({always: true, message: "Configuration not provided"})
     configuration: Record<string, any>;
     @IsNotEmpty({always: true, message: "Interface not provided"})
-    interfaceId: string;
+    interface: string;
 }
 export class CreateProjectDto implements User{
     userId: string;

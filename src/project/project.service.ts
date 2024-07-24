@@ -11,6 +11,8 @@ import { Signature } from './entities/signature.entity';
 import { CreateStackSignatureDto } from './dto/create-signature.dto';
 import { UpdateStackDto } from './dto/update-stack.dto';
 import { UpdateSignaturesDto } from './dto/update-signature.dto';
+import { GetUserProjectDto } from './dto/get-user-projects.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
 
 @Injectable()
 export class ProjectService {
@@ -34,8 +36,12 @@ export class ProjectService {
     }
   }
 
+  async getUserProjects(getUserProjectDto: GetUserProjectDto){
+    return await this.projectRepository.find({where: {userId: getUserProjectDto.userId}, relations: ["stacks"]});
+  }
+
   async createProject(createProjectDto: CreateProjectDto) {
-    const inter = await this.interfaceRepository.findOne({where: {interfaceId: createProjectDto.source.interfaceId}});
+    const inter = await this.interfaceRepository.findOne({where: {name: createProjectDto.source.interface}});
     if(!inter){
       throw new HttpException('Invalid interface', HttpStatus.BAD_REQUEST);
     }
@@ -44,12 +50,12 @@ export class ProjectService {
         throw new HttpException('Missing required configuration parameters for Kafka source', HttpStatus.BAD_REQUEST);
       }
     }
-    const project = new Project({...createProjectDto, source: new Source({...createProjectDto.source})});
+    const project = new Project({...createProjectDto, source: new Source({...createProjectDto.source, interface: inter})});
     return await this.projectRepository.save(project);
   }
 
 
-  async updateProject(projectId: string, updateProjectDto: CreateProjectDto){
+  async updateProject(projectId: string, updateProjectDto: UpdateProjectDto){
     try{
       let project = await this.projectRepository.findOne({
         where: { projectId: projectId, userId: updateProjectDto.userId },
@@ -60,11 +66,11 @@ export class ProjectService {
         throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
       }
 
-      this.projectRepository.merge(project, updateProjectDto);
+      this.projectRepository.merge(project, {...updateProjectDto, source:{interfaceId: project.source.interfaceId}});
 
       if (updateProjectDto.source) {
-        if(updateProjectDto.source.interfaceId){
-          const interfaceUpdate = await this.interfaceRepository.findOne({where: {interfaceId:updateProjectDto.source.interfaceId}});
+        if(updateProjectDto.source.interface){
+          const interfaceUpdate = await this.interfaceRepository.findOne({where: {name:updateProjectDto.source.interface}});
           if(!interfaceUpdate){
             throw new HttpException('Invalid interface', HttpStatus.BAD_REQUEST);
           }
@@ -86,6 +92,10 @@ export class ProjectService {
       console.error(err);
       throw new HttpException('Failed to update project', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  async getAllInterfaces(){
+    return await this.interfaceRepository.find();
   }
 
   async createProjectGroups(createProjectStackDto: CreateProjectStackDto) {

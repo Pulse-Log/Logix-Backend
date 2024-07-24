@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -7,6 +7,7 @@ import { ProjectModule } from './project/project.module';
 import { KafkaConsumerManagerModule } from './kafka-consumer-manager/kafka-consumer-manager.module';
 import { LogSocketModule } from './log-socket/log-socket.module';
 import { JwtStrategy } from './global-guard/jwt-strategy';
+import * as cors from 'cors';
 
 @Module({
   imports: [
@@ -34,4 +35,14 @@ import { JwtStrategy } from './global-guard/jwt-strategy';
   controllers: [AppController],
   providers: [AppService, JwtStrategy],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    const corsOptions = {
+      origin: 'http://localhost:3000', // Replace with your frontend app's URL
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+      credentials: true, // Enable passing cookies, if needed
+    };
+    
+    consumer.apply(cors(corsOptions)).forRoutes('*');
+  }
+}
