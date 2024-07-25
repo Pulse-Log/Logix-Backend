@@ -13,6 +13,7 @@ import { UpdateStackDto } from './dto/update-stack.dto';
 import { UpdateSignaturesDto } from './dto/update-signature.dto';
 import { GetUserProjectDto } from './dto/get-user-projects.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { Http } from 'winston/lib/winston/transports';
 
 @Injectable()
 export class ProjectService {
@@ -34,6 +35,17 @@ export class ProjectService {
     }else{
       console.log(kafka.interfaceId);
     }
+  }
+
+  async getProject(getUserProjectDto: GetUserProjectDto, projectId: string){
+    const project = await this.projectRepository.findOne({where: {projectId: projectId},relations: ["stacks"]});
+    if(project.userId!==getUserProjectDto.userId){
+      throw new HttpException('Invalid access', HttpStatus.FORBIDDEN);
+    }
+    if(!project){
+      throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
+    }
+    return project;
   }
 
   async getUserProjects(getUserProjectDto: GetUserProjectDto){

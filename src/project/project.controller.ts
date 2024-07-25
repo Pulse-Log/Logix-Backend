@@ -15,23 +15,38 @@ import { GetUserProjectDto } from './dto/get-user-projects.dto';
 @UseGuards(JwtAuthGuard,UserIdGuard)
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
-
-  @Post('stack/new')
-  createNewGroup(@Body() createIdentificationGroupDto: CreateProjectStackDto) {
-    return this.projectService.createProjectGroups(createIdentificationGroupDto);
-  }
   @Get('interfaces')
   getAllInterfaces(){
     return this.projectService.getAllInterfaces();
   }
-  @Get()
+  @Get('all')
   getAllProjects(@Query() getUserProjectDto: GetUserProjectDto) {
     return this.projectService.getUserProjects(getUserProjectDto);
+  }
+  @Get(':project_id')
+  getUserProject(@Query() getUserProjectDto: GetUserProjectDto, @Param('project_id') id:string) {
+    return this.projectService.getProject(getUserProjectDto, id);
+  }
+
+
+
+  
+  @Post('new')
+  create(@Body() createProjectDto: CreateProjectDto) {
+    return this.projectService.createProject(createProjectDto);
+  }
+  @Post('stack/new')
+  createNewGroup(@Body() createIdentificationGroupDto: CreateProjectStackDto) {
+    return this.projectService.createProjectGroups(createIdentificationGroupDto);
   }
   @Post('stack/signature/new')
   createNewSignature(@Body() createSignature: CreateStackSignatureDto) {
     return this.projectService.createstackSignature(createSignature);
   }
+
+
+
+  
   @Patch('/:project_id/stack/:id')
   updateStack(@Param('id') id:string, @Body() updateStackdto: UpdateStackDto){
     return this.projectService.updateProjectStack(id, updateStackdto);
@@ -39,10 +54,6 @@ export class ProjectController {
   @Patch('/:project_id/stack/:id/signature/:signature')
   updateSignature(@Param('id') sId:string,@Param('signature') signatureId:string, @Body() updateSignatureDto: UpdateSignaturesDto){
     return this.projectService.updateSignature(sId, signatureId, updateSignatureDto);
-  }
-  @Post('new')
-  create(@Body() createProjectDto: CreateProjectDto) {
-    return this.projectService.createProject(createProjectDto);
   }
   @Patch('update/:id')
   update(@Param('id') id: string, @Body() updateProjectDto: CreateProjectDto) {
