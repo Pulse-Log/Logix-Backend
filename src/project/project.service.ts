@@ -14,13 +14,19 @@ import { UpdateSignaturesDto } from './dto/update-signature.dto';
 import { GetUserProjectDto } from './dto/get-user-projects.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Http } from 'winston/lib/winston/transports';
+import { Viewer } from './entities/viewer.entity';
+import { CreateComponentDto } from './dto/create-component.dto';
+import { Component } from './entities/components.entity';
+import { GetStackSignatures } from './dto/get-stack-signatures.dto';
 
 @Injectable()
 export class ProjectService {
   constructor(@InjectRepository(Project) private readonly projectRepository: Repository<Project>,
   @InjectRepository(Interface) private readonly interfaceRepository: Repository<Interface>,
   @InjectRepository(Stack) private readonly stackRepository: Repository<Stack>,
-  @InjectRepository(Signature) private readonly signatureRepository: Repository<Signature>
+  @InjectRepository(Signature) private readonly signatureRepository: Repository<Signature>,
+  @InjectRepository(Viewer) private readonly viewerRepository: Repository<Viewer>,
+  @InjectRepository(Component) private readonly componentRepository: Repository<Component>
 ){
     console.log("Initializing Project Service");
     this.startup();
@@ -28,12 +34,20 @@ export class ProjectService {
 
   async startup(){
     const kafka = await this.interfaceRepository.findOne({where: {name: 'Kafka'}});
+    const linechart = await this.viewerRepository.findOne({where: {name: 'LineChart'}});
     if(!kafka){
       console.log("Creating kafka interface.");
       const kafkaInterface = new Interface({name: 'Kafka'});
       await this.interfaceRepository.save(kafkaInterface);
     }else{
       console.log(kafka.interfaceId);
+    }
+    if(!linechart){
+      console.log("Creating Linechart viewer.");
+      const line = new Viewer({name: 'LineChart'});
+      await this.viewerRepository.save(line);
+    }else{
+      console.log(linechart.viewerId);
     }
   }
 
@@ -155,6 +169,30 @@ export class ProjectService {
     const signature = new Signature({...createSignatureDto});
     await this.signatureRepository.save(signature);
     return await this.stackRepository.findOne({where: {sId: createSignatureDto.sId}, relations:["project", "signatures"]});
+  }
+
+  async createComponent(createComponentDto: CreateComponentDto){
+    const stack = await this.stackRepository.findOne({where: {sId: createComponentDto.sId}, relations:['project']});
+    if(!stack || stack.project.userId!==createComponentDto.userId){
+      throw new HttpException('Not authorized to update this project or stack not found', HttpStatus.FORBIDDEN);
+    }
+    const component = new Component({...createComponentDto});
+    return await this.componentRepository.save(component);
+  }
+
+  async getViewers(){
+    return await this.viewerRepository.find();
+  }
+
+  async getStack(getStackSignatureDto: GetStackSignatures, sId: string){
+    const stack = await this.stackRepository.findOne({where: {sId: sId}, relations:['project','signatures', 'components', 'components.signature', 'components.viewer']});
+    if(!stack) {
+      throw new HttpException('Stack not found', HttpStatus.NOT_FOUND);
+    }
+    if(stack.project.userId!==getStackSignatureDto.userId){
+      throw new HttpException('Not authorized to update this project', HttpStatus.FORBIDDEN);
+    }
+    return stack;
   }
 
   async findGroupsOfProject(projectId: string, userId: string) {

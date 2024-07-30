@@ -10,10 +10,12 @@ import { Stack } from './entities/stack.entity';
 import { Signature } from './entities/signature.entity';
 import { Source } from './entities/source.entity';
 import { Interface } from './entities/interface.entity';
+import { Component } from './entities/components.entity';
+import { Viewer } from './entities/viewer.entity';
 
 @Module({
   imports:[
-    TypeOrmModule.forFeature([Project, Stack, Signature, Source, Interface]), PassportModule
+    TypeOrmModule.forFeature([Project, Stack, Signature, Source, Interface, Component, Viewer]), PassportModule
   ],
   controllers: [ProjectController],
   providers: [ProjectService],

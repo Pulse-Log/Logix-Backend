@@ -9,7 +9,7 @@ export class CreateProjectStackDto implements User {
 }
 
 export class CreateSignaturesDto {
-    value : string;
+    topic : string;
     key?: string;
     schema: Record<string, any>;
 }

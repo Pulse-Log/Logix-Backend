@@ -1,6 +1,7 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Stack } from "./stack.entity";
 import { AbstractEntity } from "src/helper/abstract.entity";
+import { Component } from "./components.entity";
 
 @Entity()
 export class Signature extends AbstractEntity<Signature>{
@@ -8,7 +9,7 @@ export class Signature extends AbstractEntity<Signature>{
     signatureId: string;
 
     @Column()
-    value: string;
+    topic: string;
 
     @Column({nullable: true})
     key?: string;
@@ -22,4 +23,7 @@ export class Signature extends AbstractEntity<Signature>{
     @ManyToOne(()=>Stack, {onDelete: 'CASCADE'})
     @JoinColumn({name: 'sId'})
     stack: Stack;
+
+    @OneToMany(()=>Component, (ob)=>ob.signature, {cascade: true})
+    components: Component[];
 }

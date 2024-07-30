@@ -9,6 +9,8 @@ import { CreateStackSignatureDto } from './dto/create-signature.dto';
 import { UpdateStackDto } from './dto/update-stack.dto';
 import { UpdateSignaturesDto } from './dto/update-signature.dto';
 import { GetUserProjectDto } from './dto/get-user-projects.dto';
+import { GetStackSignatures } from './dto/get-stack-signatures.dto';
+import { CreateComponentDto } from './dto/create-component.dto';
 
 @Controller('project')
 @UseFilters(HttpExceptionFilter)
@@ -19,6 +21,10 @@ export class ProjectController {
   getAllInterfaces(){
     return this.projectService.getAllInterfaces();
   }
+  @Get('viewers')
+  getAllViewers(){
+    return this.projectService.getViewers();
+  }
   @Get('all')
   getAllProjects(@Query() getUserProjectDto: GetUserProjectDto) {
     return this.projectService.getUserProjects(getUserProjectDto);
@@ -26,6 +32,10 @@ export class ProjectController {
   @Get(':project_id')
   getUserProject(@Query() getUserProjectDto: GetUserProjectDto, @Param('project_id') id:string) {
     return this.projectService.getProject(getUserProjectDto, id);
+  }
+  @Get(':project_id/stack/:sId')
+  getStack(@Query() getStackSignatureDto: GetStackSignatures, @Param('sId') sId: string){
+    return this.projectService.getStack(getStackSignatureDto, sId);
   }
 
 
@@ -42,6 +52,10 @@ export class ProjectController {
   @Post('stack/signature/new')
   createNewSignature(@Body() createSignature: CreateStackSignatureDto) {
     return this.projectService.createstackSignature(createSignature);
+  }
+  @Post('stack/component/new')
+  createComponent(@Body() createComponentDto: CreateComponentDto){
+    return this.projectService.createComponent(createComponentDto);
   }
 
 

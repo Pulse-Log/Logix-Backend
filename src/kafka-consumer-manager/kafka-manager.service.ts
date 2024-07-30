@@ -32,12 +32,12 @@ export class KafkaManager {
             for(let key of project.stacks){
                 this.stacks.get(project_id).push(key.sId);
                 for(let sig of key.signatures){
-                    if(!this.signatureStackMap.has(sig.value)){
-                        this.signatureStackMap.get(project_id).set(sig.value, []);
+                    if(!this.signatureStackMap.has(sig.topic)){
+                        this.signatureStackMap.get(project_id).set(sig.topic, []);
                     }
-                    let list = this.signatureStackMap.get(project_id).get(sig.value);
+                    let list = this.signatureStackMap.get(project_id).get(sig.topic);
                     list.push(key.sId);
-                    this.signatureStackMap.get(project_id).set(sig.value, list);
+                    this.signatureStackMap.get(project_id).set(sig.topic, list);
                 }
             }
             console.log(this.signatureStackMap);
@@ -87,7 +87,7 @@ export class KafkaManager {
         const topics = new Set<string>();
         for (let group of project.stacks) {
             for (let topic of group.signatures) {
-                topics.add(topic.value);
+                topics.add(topic.topic);
             }
         }
         return Array.from(topics);

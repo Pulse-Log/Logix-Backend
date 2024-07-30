@@ -2,6 +2,7 @@ import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, Pri
 import { Project } from "./project.entity";
 import { Signature} from "./signature.entity";
 import { AbstractEntity } from "src/helper/abstract.entity";
+import { Component } from "./components.entity";
 
 @Entity()
 export class Stack extends AbstractEntity<Stack>{
@@ -26,5 +27,8 @@ export class Stack extends AbstractEntity<Stack>{
 
     @OneToMany(()=>Signature, (id)=>id.stack, {cascade: true})
     signatures: Signature[]
+
+    @OneToMany(()=>Component, (ob)=>ob.stack)
+    components: Component[]
 
 }
