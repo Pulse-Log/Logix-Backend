@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Project } from './entities/project.entity';
@@ -18,6 +18,8 @@ import { Viewer } from './entities/viewer.entity';
 import { CreateComponentDto } from './dto/create-component.dto';
 import { Component } from './entities/components.entity';
 import { GetStackSignatures } from './dto/get-stack-signatures.dto';
+import { KafkaManager } from 'src/kafka-consumer-manager/kafka-manager.service';
+import { LogSocketService } from 'src/log-socket/log-socket.service';
 
 @Injectable()
 export class ProjectService {
@@ -26,7 +28,10 @@ export class ProjectService {
   @InjectRepository(Stack) private readonly stackRepository: Repository<Stack>,
   @InjectRepository(Signature) private readonly signatureRepository: Repository<Signature>,
   @InjectRepository(Viewer) private readonly viewerRepository: Repository<Viewer>,
-  @InjectRepository(Component) private readonly componentRepository: Repository<Component>
+  @InjectRepository(Component) private readonly componentRepository: Repository<Component>,
+  @Inject(forwardRef(()=>KafkaManager))private kafkaManager: KafkaManager,
+  @Inject(forwardRef(() => LogSocketService))
+        private socketService: LogSocketService
 ){
     console.log("Initializing Project Service");
     this.startup();
@@ -77,7 +82,23 @@ export class ProjectService {
       }
     }
     const project = new Project({...createProjectDto, source: new Source({...createProjectDto.source, interface: inter})});
-    return await this.projectRepository.save(project);
+    const saved =  await this.projectRepository.save(project);
+    this.runConsumer(saved.projectId).catch(error => {
+      console.error('Async operation failed:', error);
+    });
+
+    return saved;
+  }
+
+  async runConsumer(projectId: string){
+    const project = await this.projectRepository.findOne({where: {projectId: projectId},relations:['stacks', 'source', 'stacks.signatures']});
+    await this.kafkaManager.createConsumer(project.userId, project.projectId, project);
+  }
+
+  async updateProjectStatus(projectId: string, status: string){
+    const project = await this.projectRepository.findOne({where: {projectId: projectId}});
+    project.status = status;
+    await this.projectRepository.save(project);
   }
 
 
@@ -136,8 +157,10 @@ export class ProjectService {
         ...createProjectStackDto,
         signatures: createProjectStackDto.signatures.map((signature) => new Signature(signature)),
       });
-
       await this.stackRepository.save(stack);
+      this.socketService.restartInterface(project.projectId, project.userId).catch(error => {
+        console.error('Restart operation failed:', error);
+      });;
       return await this.projectRepository.findOne({where: {projectId: createProjectStackDto.projectId},relations:['stacks', 'stacks.signatures']});
   }
 

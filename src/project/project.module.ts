@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { ProjectController } from './project.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -12,10 +12,12 @@ import { Source } from './entities/source.entity';
 import { Interface } from './entities/interface.entity';
 import { Component } from './entities/components.entity';
 import { Viewer } from './entities/viewer.entity';
+import { KafkaConsumerManagerModule } from 'src/kafka-consumer-manager/kafka-consumer-manager.module';
+import { LogSocketModule } from 'src/log-socket/log-socket.module';
 
 @Module({
   imports:[
-    TypeOrmModule.forFeature([Project, Stack, Signature, Source, Interface, Component, Viewer]), PassportModule
+    TypeOrmModule.forFeature([Project, Stack, Signature, Source, Interface, Component, Viewer]), PassportModule, forwardRef(()=>KafkaConsumerManagerModule), forwardRef(()=>LogSocketModule)
   ],
   controllers: [ProjectController],
   providers: [ProjectService],

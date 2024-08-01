@@ -6,7 +6,7 @@ import { ProjectModule } from 'src/project/project.module';
 import { LogSocketModule } from 'src/log-socket/log-socket.module';
 
 @Module({
-    imports: [ProjectModule, forwardRef(()=>LogSocketModule)],
+    imports: [forwardRef(()=>ProjectModule), forwardRef(()=>LogSocketModule)],
     providers:[KafkaManager],
     exports: [KafkaManager]
 })

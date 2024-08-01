@@ -6,7 +6,7 @@ import { ProjectModule } from 'src/project/project.module';
 import { KafkaConsumerManagerModule } from 'src/kafka-consumer-manager/kafka-consumer-manager.module';
 
 @Module({
-    imports: [ProjectModule, forwardRef(()=>KafkaConsumerManagerModule)],
+    imports: [forwardRef(()=>ProjectModule), forwardRef(()=>KafkaConsumerManagerModule)],
     providers:[LogSocketService],
     exports: [LogSocketService]
 })

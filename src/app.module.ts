@@ -18,7 +18,7 @@ import * as cors from 'cors';
     
     TypeOrmModule.forRoot({
       type: 'postgres',
-      url:'postgres://tsdbadmin:d3w97zzxqi34jszk@lrwt8m3wle.lsfokbxtud.tsdb.cloud.timescale.com:37767/tsdb?sslmode=require',
+      url:'postgresql://logix-db_owner:TfdNkcO54CzA@ep-hidden-shadow-a12xffth.ap-southeast-1.aws.neon.tech/logix-db?sslmode=require',
       database: 'logix-db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV==='development'? true : null,

@@ -21,6 +21,9 @@ export class Project extends AbstractEntity<Project>{
     @CreateDateColumn()
     createdAt: Date;
 
+    @Column({default: "Online"})
+    status: string;
+
     @OneToOne(()=>Source, (source)=>source.project, {cascade: true})
     source: Source;
 

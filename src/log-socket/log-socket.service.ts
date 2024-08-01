@@ -1,31 +1,103 @@
+// src/log-socket/log-socket.service.ts
 import { Inject, Injectable, forwardRef } from "@nestjs/common";
 import { ConnectedSocket, MessageBody, OnGatewayDisconnect, OnGatewayInit, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
-import { KafkaMessage } from "kafkajs";
 import { Server, Socket } from "socket.io";
+import { ProjectService } from "../project/project.service";
 import { KafkaMessageDto } from "src/kafka-consumer-manager/dto/kafka-log.dto";
-import { KafkaErrorDetails } from "src/kafka-consumer-manager/kafka-error-detection";
 import { KafkaManager } from "src/kafka-consumer-manager/kafka-manager.service";
-import { ProjectService } from "src/project/project.service";
 
 @Injectable()
-@WebSocketGateway({namespace: 'logs'})
+@WebSocketGateway({
+    namespace: 'logs',
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST'],
+        credentials: true,
+    },
+})
 export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
-    constructor(private projectService: ProjectService, @Inject(forwardRef(()=>KafkaManager))private kafkaManager: KafkaManager){
-        console.log("Initializing LogSocketService");
-    }
-    
     @WebSocketServer()
     server: Server;
 
-    afterInit(server: Server) {
-        server.on('connection',(socket)=>{
-            console.log("New user connected");
-            console.log(socket.id);
-        })
+    constructor(
+        @Inject(forwardRef(() => KafkaManager))
+        private kafkaManager: KafkaManager,
+        @Inject(forwardRef(() => ProjectService))
+        private projectService: ProjectService
+    ) {
+        console.log("Initializing LogSocketService");
     }
 
-    @SubscribeMessage('project')
-    async connectProject(@ConnectedSocket() socket: Socket, @MessageBody() body: string) {
+    afterInit(server: Server) {
+        server.on('connection', (socket) => {
+            console.log("New user connected");
+            console.log(socket.id);
+        });
+    }
+
+    @SubscribeMessage('joinStack')
+    async connectProject(@ConnectedSocket() socket: Socket, @MessageBody() body: any) {
+        await this.leaveAllRoomsExcept(socket, [socket.id, body.projectId]);
+        await this.joinRoom(socket, body);
+    }
+
+    @SubscribeMessage('editInterface')
+    async editInterface(@ConnectedSocket() socket: Socket, @MessageBody() body: any) {
+        if (body.status === "pause") {
+            await this.pauseProject(body.projectId);
+        } else if (body.status === "restart") {
+            await this.restartProject(body.projectId, body.userId);
+        }
+    }
+
+    @SubscribeMessage('leaveStack')
+    async leaveStack(@ConnectedSocket() socket: Socket) {
+        await this.leaveAllRoomsExcept(socket, [socket.id, socket.data.projectId]);
+    }
+
+    @SubscribeMessage('joinProject')
+    async joinProject(@ConnectedSocket() socket: Socket, @MessageBody() body: any) {
+        await this.leaveAllRooms(socket);
+        const project = await this.projectService.findGroupsOfProject(body.projectId, body.userId);
+        if (!project) {
+            this.handleProjectNotFound(socket);
+            return;
+        }
+        await this.joinProjectRoom(socket, body, project);
+    }
+
+    async handleDisconnect(socket: Socket) {
+        await this.leaveAllRooms(socket);
+        socket.disconnect(true);
+    }
+
+    sendProjectInfoLogs(err: string, project_id: string) {
+        const now = new Date();
+        const dateTimeString = now.toISOString();
+        const formattedError = `${dateTimeString} : ${err}`;
+        this.server.to(project_id).emit("project_info_log", formattedError);
+    }
+
+    sendLog(message: KafkaMessageDto, sId: string[]) {
+        this.server.to(sId).emit("newLog", message);
+    }
+
+    sendStatus(projectId: string, status: string) {
+        this.server.to(projectId).emit("status", status);
+    }
+
+    private async leaveAllRoomsExcept(socket: Socket, exceptRooms: string[]) {
+        if (socket.rooms) {
+            const rooms = Array.from(socket.rooms);
+            for (const room of rooms) {
+                if (!exceptRooms.includes(room)) {
+                    await socket.leave(room);
+                }
+            }
+        }
+    }
+
+    private async leaveAllRooms(socket: Socket) {
         if (socket.rooms) {
             const rooms = Array.from(socket.rooms);
             for (const room of rooms) {
@@ -34,44 +106,46 @@ export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
                 }
             }
         }
-        console.log(body["projectId"]+" "+body["userId"]);
-        const project = await this.projectService.findGroupsOfProject(body["projectId"], body["userId"]);
-        if(!project) {
-            socket.emit('error', 'Project not found');
-            socket.disconnect(true);
-            return;
-        }
-        if(!this.kafkaManager.checkRunningConsumer(body["projectId"])){
-            console.log("Creating new consumer");
-            await this.kafkaManager.createConsumer(body["userId"], body["projectId"], project);
-        }
-        socket.join(body["sId"]);
-        socket.data.userId = body["userId"];
-        socket.data.projectId = body["projectId"];
-        socket.data.sId = body["sId"];
     }
 
-    async handleDisconnect(client: Socket) {
-        const sId = client.data.sId;
-        if(sId){
-            client.leave(sId);
-            client.disconnect(true);
-        }
+    private async joinRoom(socket: Socket, body: any) {
+        socket.join(body.sId);
+        socket.data.userId = body.userId;
+        socket.data.projectId = body.projectId;
+        socket.data.sId = body.sId;
     }
 
-    sendProjectInfoLogs(err: KafkaErrorDetails, sId: string[]){
-        console.log(err);
-        console.log(sId);
-        this.server.to(sId).emit("project_info_log",err);
+    private async pauseProject(projectId: string) {
+        console.log("Changing status to pause");
+        await this.kafkaManager.stopIfRunningConsumer(projectId);
+        this.sendStatus(projectId, "Offline");
     }
 
-    async forceDisconnect(sId: string[]){
-        this.server.to(sId).disconnectSockets(true);
+    private async restartProject(projectId: string, userId: string) {
+        console.log("Changing status to restart");
+        this.sendProjectInfoLogs("Restarting/ starting project. Please wait", projectId);
+        this.sendStatus(projectId, "Offline");
+        await this.restartInterface(projectId, userId);
+        this.sendStatus(projectId, "Online");
     }
 
-
-    sendLog(message: KafkaMessageDto, sId: string[]){
-        this.server.to(sId).emit("newLog", message);
+    async restartInterface(projectId: string, userId: string) {
+        await this.kafkaManager.stopIfRunningConsumer(projectId);
+        const project = await this.projectService.findGroupsOfProject(projectId, userId);
+        console.log("Creating new consumer");
+        this.projectService.updateProjectStatus(projectId, "Online");
+        await this.kafkaManager.createConsumer(userId, projectId, project);
     }
 
+    private handleProjectNotFound(socket: Socket) {
+        socket.emit('error', 'Project not found');
+        socket.disconnect(true);
+    }
+
+    private async joinProjectRoom(socket: Socket, body: any, project: any) {
+        socket.join(body.projectId);
+        socket.data.userId = body.userId;
+        socket.data.projectId = body.projectId;
+        this.sendStatus(body.projectId, project.status);
+    }
 }
