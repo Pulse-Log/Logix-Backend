@@ -11,6 +11,7 @@ import { identifyKafkaError } from "./kafka-error-detection";
 export class KafkaManager {
     private workers: Map<string, Worker> = new Map();
     private signatureStackMap: Map<string, Map<string, string[]>> = new Map();
+    private statusMap: Map<string,Map<string, Map<string, Set<string>>>> = new Map();
 
     constructor(
         @Inject(forwardRef(() => ProjectService))
@@ -24,6 +25,8 @@ export class KafkaManager {
     async createConsumer(user_id: string, project_id: string, project: Project) {
         try {
             this.initializeSignatureStackMap(project_id, project);
+            console.log(this.signatureStackMap);
+            console.log(this.statusMap);
             const workerData = this.prepareWorkerData(project_id, project);
             const worker = this.createWorker(project_id, workerData);
             this.setupWorkerEventListeners(worker, project_id);
@@ -34,10 +37,15 @@ export class KafkaManager {
     }
 
     private initializeSignatureStackMap(project_id: string, project: Project) {
+        console.log(project);
         if (!this.signatureStackMap.has(project_id)) {
             this.signatureStackMap.set(project_id, new Map());
         }
+        if (!this.statusMap.has(project_id)) {
+            this.statusMap.set(project_id, new Map());
+        }
         for (let key of project.stacks) {
+            this.statusMap.get(project_id).set(key.sId,new Map([["Running", new Set<string>()],["Stopped", new Set<string>()]]));
             for (let sig of key.signatures) {
                 if (!this.signatureStackMap.get(project_id).has(sig.topic)) {
                     this.signatureStackMap.get(project_id).set(sig.topic, []);
@@ -82,6 +90,27 @@ export class KafkaManager {
             case 'info_log':
                 this.socketService.sendProjectInfoLogs(message.data, project_id);
                 break;
+            case 'online_topic_status':
+                console.log("Got "+message.data);
+                console.log(this.signatureStackMap.get(project_id));
+                console.log(this.signatureStackMap.get(project_id).get(message.data));
+                for(let stack of this.signatureStackMap.get(project_id).get(message.data.toString())){
+                    console.log("Adding "+ stack);
+                    this.statusMap.get(project_id).get(stack).get('Running').add(message.data.toString());
+                    this.statusMap.get(project_id).get(stack).get('Stopped').delete(message.data.toString());
+                }
+                break;
+            case 'offline_topic_status':
+                for(let stack of this.signatureStackMap.get(project_id).get(message.data.toString())){
+                    this.statusMap.get(project_id).get(stack).get('Stopped').add(message.data.toString());
+                    this.statusMap.get(project_id).get(stack).get('Running').delete(message.data.toString());
+                }
+                break;
+            case 'status_done':
+                console.log("Status completed");
+                console.log(this.statusMap);
+                this.socketService.sendStacksStatus(project_id, this.statusMap.get(project_id));
+                break;    
         }
     }
 
@@ -119,6 +148,7 @@ export class KafkaManager {
         if (this.isNonRecoverableError(val.errorType)) {
             this.removeConsumer(project_id);
             this.signatureStackMap.delete(project_id);
+            this.statusMap.delete(project_id);
         }
     }
 
@@ -137,12 +167,22 @@ export class KafkaManager {
         return this.workers.has(project_id);
     }
 
+    sendStatus(project_id: string){
+        if(this.signatureStackMap.has(project_id)){
+            this.socketService.sendStacksStatus(project_id, this.statusMap.get(project_id));
+            this.socketService.sendStatus(project_id, "Online");
+        }else{
+            this.socketService.sendStatus(project_id, "Offline");
+        }
+    }
+
     async stopIfRunningConsumer(project_id: string) {
         await this.removeConsumer(project_id);
         if (this.workers.get(project_id)) {
             this.socketService.sendProjectInfoLogs("Stopping consumer with projectId: " + project_id, project_id);
         }
         this.signatureStackMap.delete(project_id);
+        this.statusMap.delete(project_id);
     }
 
     private async handleWorkerExit(project_id: string, code: number) {
@@ -152,6 +192,7 @@ export class KafkaManager {
             await this.removeConsumer(project_id);
             await this.socketService.sendStatus(project_id, "Offline");
             this.signatureStackMap.delete(project_id);
+            this.statusMap.delete(project_id);
         }
     }
 }

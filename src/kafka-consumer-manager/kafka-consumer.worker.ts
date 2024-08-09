@@ -1,5 +1,5 @@
 import { parentPort, workerData } from 'worker_threads';
-import { Kafka, logLevel } from 'kafkajs';
+import { Consumer, Kafka, logLevel } from 'kafkajs';
 import { identifyKafkaError } from './kafka-error-detection';
 
 async function runConsumer() {
@@ -12,6 +12,7 @@ async function runConsumer() {
         await connectAndSubscribe(consumer, topics);
         await runConsumerLoop(consumer, project_id);
     } catch (err) {
+        console.log(err);
         handleConsumerError(err, project_id);
     }
 }
@@ -19,13 +20,13 @@ async function runConsumer() {
 function createKafkaInstance(connectionString, username, password) {
     return new Kafka({
         brokers: [connectionString],
-        ssl: true,
-        sasl: {
-            mechanism: 'plain',
-            username: username,
-            password: password,
-        },
-        connectionTimeout: 3000,
+        // ssl: true,
+        // sasl: {
+        //     mechanism: 'plain',
+        //     username: username,
+        //     password: password,
+        // },
+        // connectionTimeout: 3000,
         logLevel: logLevel.INFO,
         retry: {
             'retries': 6
@@ -44,15 +45,21 @@ function createLogCreator() {
     };
 }
 
-async function connectAndSubscribe(consumer, topics) {
+async function connectAndSubscribe(consumer: Consumer, topics) {
     await consumer.connect();
     for (let topic of topics) {
-        await consumer.subscribe({ topic: topic }).catch(err => {
+        await consumer.subscribe({ topic: topic }).then(()=>{
+            console.log("Subscribed to topic: ",topic);
+            parentPort.postMessage({type: 'online_topic_status', data: topic});
+        }).catch(err => {
             let val = identifyKafkaError(err);
+            console.log("Error to topic: ",topic);
             val.description = `Topic: ${topic} is not defined in the broker. Please make sure that the topic is handled correctly in all the groups.`;
+            parentPort.postMessage({type: 'offline_topic_status', data: topic});
             parentPort.postMessage({ type: 'info_log', data: val.description });
         });
     }
+    parentPort.postMessage({type: 'status_done', data: "Completed"});
 }
 
 async function runConsumerLoop(consumer, project_id) {

@@ -40,12 +40,20 @@ export class ProjectService {
   async startup(){
     const kafka = await this.interfaceRepository.findOne({where: {name: 'Kafka'}});
     const linechart = await this.viewerRepository.findOne({where: {name: 'LineChart'}});
+    const terminal = await this.viewerRepository.findOne({where: {name: 'Terminal'}});
     if(!kafka){
       console.log("Creating kafka interface.");
       const kafkaInterface = new Interface({name: 'Kafka'});
       await this.interfaceRepository.save(kafkaInterface);
     }else{
       console.log(kafka.interfaceId);
+    }
+    if(!terminal){
+      console.log("Creating terminal viewer.");
+      const terminalInterface = new Viewer({name: 'Terminal'});
+      await this.viewerRepository.save(terminalInterface);
+    }else{
+      console.log(terminal.viewerId);
     }
     if(!linechart){
       console.log("Creating Linechart viewer.");
@@ -151,7 +159,7 @@ export class ProjectService {
         throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
       }
       if(createProjectStackDto.signatures.length===0){
-        throw new HttpException("Inculde atleast one stack.",HttpStatus.BAD_REQUEST);
+        throw new HttpException("Inculde atleast one signature.",HttpStatus.BAD_REQUEST);
       }
       const stack = new Stack({
         ...createProjectStackDto,

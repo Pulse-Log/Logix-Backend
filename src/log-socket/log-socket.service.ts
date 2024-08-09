@@ -86,6 +86,10 @@ export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
         this.server.to(projectId).emit("status", status);
     }
 
+    sendStacksStatus(project_id: string, status:Map<string, Map<string, Set<string>>>){
+        this.server.to(project_id).emit('stackStatus',this.serializeNestedMapSet(status));
+    }
+
     private async leaveAllRoomsExcept(socket: Socket, exceptRooms: string[]) {
         if (socket.rooms) {
             const rooms = Array.from(socket.rooms);
@@ -96,6 +100,17 @@ export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
             }
         }
     }
+
+    private serializeNestedMapSet(map: Map<string, Map<string, Set<string>>>): object {
+        const obj = {};
+        for (const [key1, value1] of map.entries()) {
+          obj[key1] = {};
+          for (const [key2, value2] of value1.entries()) {
+            obj[key1][key2] = Array.from(value2);
+          }
+        }
+        return obj;
+      }
 
     private async leaveAllRooms(socket: Socket) {
         if (socket.rooms) {
@@ -126,7 +141,7 @@ export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
         this.sendProjectInfoLogs("Restarting/ starting project. Please wait", projectId);
         this.sendStatus(projectId, "Offline");
         await this.restartInterface(projectId, userId);
-        this.sendStatus(projectId, "Online");
+        this.kafkaManager.sendStatus(projectId);
     }
 
     async restartInterface(projectId: string, userId: string) {
@@ -146,6 +161,6 @@ export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
         socket.join(body.projectId);
         socket.data.userId = body.userId;
         socket.data.projectId = body.projectId;
-        this.sendStatus(body.projectId, project.status);
+        this.kafkaManager.sendStatus(body.projectId);
     }
 }
