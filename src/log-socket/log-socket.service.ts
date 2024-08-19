@@ -90,6 +90,17 @@ export class LogSocketService implements OnGatewayInit, OnGatewayDisconnect {
         this.server.to(project_id).emit('stackStatus',this.serializeNestedMapSet(status));
     }
 
+    sendLpsUpdate(projectId: string, lpsMap: Map<string, number> | undefined) {
+        console.log("Updtaessss");
+        if(lpsMap!==undefined){
+            console.log(lpsMap);
+        console.log(Object.fromEntries(lpsMap));
+        this.server.to(projectId).emit('lpsUpdate', Object.fromEntries(lpsMap));
+        }
+        
+        
+    }
+
     private async leaveAllRoomsExcept(socket: Socket, exceptRooms: string[]) {
         if (socket.rooms) {
             const rooms = Array.from(socket.rooms);

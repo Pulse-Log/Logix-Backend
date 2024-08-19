@@ -2,6 +2,7 @@ import { Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryGenerated
 import { Stack } from "./stack.entity";
 import { AbstractEntity } from "src/helper/abstract.entity";
 import { Source } from "./source.entity";
+import { ProjectSettings } from "./settings.entity";
 
 @Entity()
 export class Project extends AbstractEntity<Project>{
@@ -26,6 +27,9 @@ export class Project extends AbstractEntity<Project>{
 
     @OneToOne(()=>Source, (source)=>source.project, {cascade: true})
     source: Source;
+
+    @OneToOne(()=>ProjectSettings, (setting)=>setting.project, {cascade: true})
+    settings: ProjectSettings;
 
     @OneToMany(()=>Stack, (group)=>group.project, {cascade:true})
     stacks: Stack[];

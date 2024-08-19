@@ -12,6 +12,9 @@ export class Source extends AbstractEntity<Source> {
     @Column('json')
     configuration: Record<string,any>;
 
+    @Column({default: false})
+    debugMode: boolean;
+
     @Column()
     projectId: string;
 

@@ -11,6 +11,8 @@ import { UpdateSignaturesDto } from './dto/update-signature.dto';
 import { GetUserProjectDto } from './dto/get-user-projects.dto';
 import { GetStackSignatures } from './dto/get-stack-signatures.dto';
 import { CreateComponentDto } from './dto/create-component.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
+import { CommonUserIdDto } from './dto/common/common.dto';
 
 @Controller('project')
 @UseFilters(HttpExceptionFilter)
@@ -28,6 +30,10 @@ export class ProjectController {
   @Get('all')
   getAllProjects(@Query() getUserProjectDto: GetUserProjectDto) {
     return this.projectService.getUserProjects(getUserProjectDto);
+  }
+  @Get(':project_id/settings')
+  getProjectSettings(@Query() getUserProjectDto: GetUserProjectDto, @Param('project_id') id: string) {
+    return this.projectService.getProjectSettings(getUserProjectDto, id);
   }
   @Get(':project_id')
   getUserProject(@Query() getUserProjectDto: GetUserProjectDto, @Param('project_id') id:string) {
@@ -69,12 +75,27 @@ export class ProjectController {
   updateSignature(@Param('id') sId:string,@Param('signature') signatureId:string, @Body() updateSignatureDto: UpdateSignaturesDto){
     return this.projectService.updateSignature(sId, signatureId, updateSignatureDto);
   }
-  @Patch('update/:id')
-  update(@Param('id') id: string, @Body() updateProjectDto: CreateProjectDto) {
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateProjectDto: UpdateProjectDto) {
     return this.projectService.updateProject(id, updateProjectDto);
   }
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.projectService.remove(+id);
+
+
+  @Delete(':project_id/stack/:sId')
+  deleteStack(@Param('project_id') project_id: string, @Param('sId') sId:string, @Query() commonDto: CommonUserIdDto) {
+    return this.projectService.deleteStack(project_id, sId, commonDto);
   }
+  @Delete(':project_id/stack/:sId/signature/:signature')
+  deleteSignature(@Param('sId') sId: string, @Param('signature') signatureId: string, @Param('project_id') projectId: string, @Query() commonDto: CommonUserIdDto) {
+    return this.projectService.deleteSignature(sId, signatureId, projectId, commonDto);
+  }
+  @Delete(':project_id')
+  remove(@Param('project_id') id: string, @Query() commonDto: CommonUserIdDto) {
+    return this.projectService.deleteProject(id, commonDto);
+  }
+  @Delete(':project_id/stack/:sId/signature/:signature/component/:componentId')
+  deleteComponent(@Param('project_id') id: string, @Param('componentId') componentId: string, @Query() commonDto: CommonUserIdDto, @Param('sId') sId: string, @Param('signature') signatureId: string){
+    return this.projectService.deleteComponent(id,sId,signatureId,componentId,commonDto);
+  }
+
 }

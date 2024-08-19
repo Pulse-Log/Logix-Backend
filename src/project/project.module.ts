@@ -14,10 +14,11 @@ import { Component } from './entities/components.entity';
 import { Viewer } from './entities/viewer.entity';
 import { KafkaConsumerManagerModule } from 'src/kafka-consumer-manager/kafka-consumer-manager.module';
 import { LogSocketModule } from 'src/log-socket/log-socket.module';
+import { ProjectSettings } from './entities/settings.entity';
 
 @Module({
   imports:[
-    TypeOrmModule.forFeature([Project, Stack, Signature, Source, Interface, Component, Viewer]), PassportModule, forwardRef(()=>KafkaConsumerManagerModule), forwardRef(()=>LogSocketModule)
+    TypeOrmModule.forFeature([Project, ProjectSettings, Stack, Signature, Source, Interface, Component, Viewer]), PassportModule, forwardRef(()=>KafkaConsumerManagerModule), forwardRef(()=>LogSocketModule)
   ],
   controllers: [ProjectController],
   providers: [ProjectService],

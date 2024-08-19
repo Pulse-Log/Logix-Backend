@@ -12,6 +12,8 @@ export class KafkaManager {
     private workers: Map<string, Worker> = new Map();
     private signatureStackMap: Map<string, Map<string, string[]>> = new Map();
     private statusMap: Map<string,Map<string, Map<string, Set<string>>>> = new Map();
+    private lpsMap: Map<string, Map<string, number>> = new Map();
+    private lpsIntervals: Map<string, NodeJS.Timeout> = new Map();
 
     constructor(
         @Inject(forwardRef(() => ProjectService))
@@ -27,6 +29,8 @@ export class KafkaManager {
             this.initializeSignatureStackMap(project_id, project);
             console.log(this.signatureStackMap);
             console.log(this.statusMap);
+            console.log(this.lpsMap);
+            this.startLpsReporting(project_id);
             const workerData = this.prepareWorkerData(project_id, project);
             const worker = this.createWorker(project_id, workerData);
             this.setupWorkerEventListeners(worker, project_id);
@@ -41,12 +45,16 @@ export class KafkaManager {
         if (!this.signatureStackMap.has(project_id)) {
             this.signatureStackMap.set(project_id, new Map());
         }
+        if (!this.lpsMap.has(project_id)) {
+            this.lpsMap.set(project_id, new Map());
+        }
         if (!this.statusMap.has(project_id)) {
             this.statusMap.set(project_id, new Map());
         }
         for (let key of project.stacks) {
             this.statusMap.get(project_id).set(key.sId,new Map([["Running", new Set<string>()],["Stopped", new Set<string>()]]));
             for (let sig of key.signatures) {
+                this.lpsMap.get(project_id).set(sig.topic, 0);
                 if (!this.signatureStackMap.get(project_id).has(sig.topic)) {
                     this.signatureStackMap.get(project_id).set(sig.topic, []);
                 }
@@ -75,6 +83,28 @@ export class KafkaManager {
         return worker;
     }
 
+    private startLpsReporting(project_id: string) {
+        const interval = setInterval(() => {
+            this.socketService.sendLpsUpdate(project_id, this.lpsMap.get(project_id));
+            if(this.lpsMap.get(project_id)){
+                for (let [topic, _] of this.lpsMap.get(project_id)) {
+                    this.lpsMap.get(project_id).set(topic, 0);
+                }
+            }
+        }, 1000);
+        this.lpsIntervals.set(project_id, interval);
+    }
+
+    private stopLpsReporting(project_id: string) {
+        console.log("STopping");
+        const interval = this.lpsIntervals.get(project_id);
+        if (interval) {
+            console.log("clearing");
+            clearInterval(interval);
+            this.lpsIntervals.delete(project_id);
+        }
+    }
+
     private setupWorkerEventListeners(worker: Worker, project_id: string) {
         worker.on('message', (message) => this.handleWorkerMessage(message, project_id));
         worker.on('error', (error) => this.handleWorkerError(project_id, error));
@@ -84,6 +114,8 @@ export class KafkaManager {
     private handleWorkerMessage(message: any, project_id: string) {
         switch (message.type) {
             case 'newLog':
+                const count = this.lpsMap.get(project_id).get(message.data.topic);
+                this.lpsMap.get(project_id).set(message.data.topic, count + 1);
                 this.socketService.sendLog(message.data, this.signatureStackMap.get(project_id).get(message.data.topic));
                 break;
             case 'error':
@@ -91,11 +123,7 @@ export class KafkaManager {
                 this.socketService.sendProjectInfoLogs(message.data, project_id);
                 break;
             case 'online_topic_status':
-                console.log("Got "+message.data);
-                console.log(this.signatureStackMap.get(project_id));
-                console.log(this.signatureStackMap.get(project_id).get(message.data));
                 for(let stack of this.signatureStackMap.get(project_id).get(message.data.toString())){
-                    console.log("Adding "+ stack);
                     this.statusMap.get(project_id).get(stack).get('Running').add(message.data.toString());
                     this.statusMap.get(project_id).get(stack).get('Stopped').delete(message.data.toString());
                 }
@@ -107,8 +135,6 @@ export class KafkaManager {
                 }
                 break;
             case 'status_done':
-                console.log("Status completed");
-                console.log(this.statusMap);
                 this.socketService.sendStacksStatus(project_id, this.statusMap.get(project_id));
                 break;    
         }
@@ -149,6 +175,8 @@ export class KafkaManager {
             this.removeConsumer(project_id);
             this.signatureStackMap.delete(project_id);
             this.statusMap.delete(project_id);
+            this.stopLpsReporting(project_id);
+            this.lpsMap.delete(project_id);
         }
     }
 
@@ -163,7 +191,7 @@ export class KafkaManager {
         return ["NumberOfRetriesExceeded", "NonRetriableError", "ConnectionError", "BrokerNotFound"].includes(errorType);
     }
 
-    checkRunningConsumer(project_id: string) {
+    checkRunningConsumer(project_id: string): boolean {
         return this.workers.has(project_id);
     }
 
@@ -183,6 +211,8 @@ export class KafkaManager {
         }
         this.signatureStackMap.delete(project_id);
         this.statusMap.delete(project_id);
+        this.stopLpsReporting(project_id);
+        this.lpsMap.delete(project_id);
     }
 
     private async handleWorkerExit(project_id: string, code: number) {
@@ -193,6 +223,8 @@ export class KafkaManager {
             await this.socketService.sendStatus(project_id, "Offline");
             this.signatureStackMap.delete(project_id);
             this.statusMap.delete(project_id);
+            this.stopLpsReporting(project_id);
+            this.lpsMap.delete(project_id);
         }
     }
 }

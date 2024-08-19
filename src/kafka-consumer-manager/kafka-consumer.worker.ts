@@ -94,6 +94,7 @@ function setupConsumerEventListeners(consumer) {
 
     consumer.on("consumer.disconnect", (event) => {
         console.log("TEST3 " + event.type + " " + event.payload);
+        throw event.payload.error;
     });
 
     consumer.on("consumer.stop", (event) => {
@@ -107,6 +108,6 @@ function handleConsumerError(err, project_id) {
 }
 
 runConsumer().catch(err => {
-    console.error('Consumer error:', err);
+    console.log('Consumer error:', err);
     process.exit(1);
 });

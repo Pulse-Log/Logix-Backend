@@ -20,6 +20,8 @@ import { Component } from './entities/components.entity';
 import { GetStackSignatures } from './dto/get-stack-signatures.dto';
 import { KafkaManager } from 'src/kafka-consumer-manager/kafka-manager.service';
 import { LogSocketService } from 'src/log-socket/log-socket.service';
+import { ProjectSettings } from './entities/settings.entity';
+import { CommonUserIdDto } from './dto/common/common.dto';
 
 @Injectable()
 export class ProjectService {
@@ -29,6 +31,7 @@ export class ProjectService {
   @InjectRepository(Signature) private readonly signatureRepository: Repository<Signature>,
   @InjectRepository(Viewer) private readonly viewerRepository: Repository<Viewer>,
   @InjectRepository(Component) private readonly componentRepository: Repository<Component>,
+  @InjectRepository(ProjectSettings) private readonly projectSettingsRepository: Repository<ProjectSettings>,
   @Inject(forwardRef(()=>KafkaManager))private kafkaManager: KafkaManager,
   @Inject(forwardRef(() => LogSocketService))
         private socketService: LogSocketService
@@ -65,7 +68,7 @@ export class ProjectService {
   }
 
   async getProject(getUserProjectDto: GetUserProjectDto, projectId: string){
-    const project = await this.projectRepository.findOne({where: {projectId: projectId},relations: ["stacks"]});
+    const project = await this.projectRepository.findOne({where: {projectId: projectId},relations: ["stacks","stacks.signatures"]});
     if(project.userId!==getUserProjectDto.userId){
       throw new HttpException('Invalid access', HttpStatus.FORBIDDEN);
     }
@@ -73,6 +76,20 @@ export class ProjectService {
       throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
     }
     return project;
+  }
+
+  async getProjectSettings(getUserProjectDto: GetUserProjectDto, projectId: string){
+    const settings = await this.projectSettingsRepository.findOne({where: {projectId: projectId}, relations: ["project", "project.source", "project.source.interface"]});
+    if(settings){
+      if(settings.project.userId!==getUserProjectDto.userId){
+        throw new HttpException('Invalid access', HttpStatus.FORBIDDEN);
+      }
+      return settings;
+    }else{
+      const newSettings = new ProjectSettings({projectId: projectId});
+      await this.projectSettingsRepository.save(newSettings);
+      return await this.projectSettingsRepository.findOne({where: {projectId: projectId}, relations: ["project", "project.source", "project.source.interface"]});
+    }
   }
 
   async getUserProjects(getUserProjectDto: GetUserProjectDto){
@@ -112,25 +129,27 @@ export class ProjectService {
 
   async updateProject(projectId: string, updateProjectDto: UpdateProjectDto){
     try{
+      
       let project = await this.projectRepository.findOne({
-        where: { projectId: projectId, userId: updateProjectDto.userId },
-        relations: ['source'],
+        where: { projectId: projectId},
+        relations: ["settings", "source", "source.interface"],
       });
 
       if (!project) {
         throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
       }
 
-      this.projectRepository.merge(project, {...updateProjectDto, source:{interfaceId: project.source.interfaceId}});
+      if(project.userId!==updateProjectDto.userId){
+        throw new HttpException('Invalid access', HttpStatus.FORBIDDEN);
+      }
+
+      if(updateProjectDto.settings.connectionTimeout>60){
+        throw new HttpException('Invalid connection timeout', HttpStatus.BAD_REQUEST);
+      }
+
+      this.projectRepository.merge(project, {...updateProjectDto});
 
       if (updateProjectDto.source) {
-        if(updateProjectDto.source.interface){
-          const interfaceUpdate = await this.interfaceRepository.findOne({where: {name:updateProjectDto.source.interface}});
-          if(!interfaceUpdate){
-            throw new HttpException('Invalid interface', HttpStatus.BAD_REQUEST);
-          }
-          project.source.interface = interfaceUpdate;
-        }
         if(updateProjectDto.source.configuration){
           if(project.source.interface.name==='Kafka'){
             if(updateProjectDto.source.configuration["username"]===undefined || updateProjectDto.source.configuration["password"]===undefined || updateProjectDto.source.configuration["broker"]===undefined){
@@ -140,13 +159,53 @@ export class ProjectService {
           }
         }
       }
+      console.log(project);
       await this.projectRepository.save(project);
-
+      
+      if(this.kafkaManager.checkRunningConsumer(project.projectId)){
+        this.socketService.restartInterface(project.projectId, project.userId).catch(error => {
+          console.error('Restart operation failed:', error);
+        });
+      }
       return project;
     }catch(err){
       console.error(err);
       throw new HttpException('Failed to update project', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  async deleteStack(projectId: string, sId: string, commonDto: CommonUserIdDto){
+    const stack = await this.stackRepository.findOne({where: {sId: sId},relations:["project"]});
+    if(!stack){
+      throw new HttpException('Stack not found', HttpStatus.NOT_FOUND);
+    }else if(stack.projectId!==projectId || stack.project.userId!==commonDto.userId){
+      throw new HttpException('Invalid access', HttpStatus.FORBIDDEN);
+    }
+    await this.stackRepository.remove(stack);
+    if(this.kafkaManager.checkRunningConsumer(stack.projectId)){
+      this.socketService.restartInterface(stack.projectId, stack.project.userId).catch(error => {
+        console.error('Restart operation failed:', error);
+      });
+    }
+    return "Deleted successfully";
+  }
+ 
+  async deleteSignature(sId: string, signatureId: string, projectId: string, commonDto: CommonUserIdDto){
+    let signature = await this.signatureRepository.findOne({where: {signatureId: signatureId}, relations:['stack', 'stack.project']});
+    if(!signature || signature.stack.sId!==sId || signature.stack.project.userId!==commonDto.userId || projectId!==signature.stack.projectId){
+      throw new HttpException('Not authorized to delete this signature or signature not found', HttpStatus.FORBIDDEN);
+    }
+    // if(signature.stack.signatures.length===1){
+    //   throw new HttpException("Cannot delete last signature.", HttpStatus.BAD_REQUEST);
+    // }
+    console.log(signature);
+    await this.signatureRepository.remove(signature);
+    if(this.kafkaManager.checkRunningConsumer(projectId)){
+      this.socketService.restartInterface(projectId, commonDto.userId).catch(error => {
+        console.error('Restart operation failed:', error);
+      });
+    }
+    return "Signature deleted successfully";
   }
 
   async getAllInterfaces(){
@@ -166,9 +225,11 @@ export class ProjectService {
         signatures: createProjectStackDto.signatures.map((signature) => new Signature(signature)),
       });
       await this.stackRepository.save(stack);
-      this.socketService.restartInterface(project.projectId, project.userId).catch(error => {
-        console.error('Restart operation failed:', error);
-      });;
+      if(this.kafkaManager.checkRunningConsumer(createProjectStackDto.projectId)){
+        this.socketService.restartInterface(project.projectId, project.userId).catch(error => {
+          console.error('Restart operation failed:', error);
+        });;
+      }
       return await this.projectRepository.findOne({where: {projectId: createProjectStackDto.projectId},relations:['stacks', 'stacks.signatures']});
   }
 
@@ -199,9 +260,13 @@ export class ProjectService {
     }
     const signature = new Signature({...createSignatureDto});
     await this.signatureRepository.save(signature);
+    if(this.kafkaManager.checkRunningConsumer(stack.projectId)){
+      this.socketService.restartInterface(stack.projectId, createSignatureDto.userId).catch(error=>{
+        console.error('Restart operation failed:', error);
+      })
+    }
     return await this.stackRepository.findOne({where: {sId: createSignatureDto.sId}, relations:["project", "signatures"]});
   }
-
   async createComponent(createComponentDto: CreateComponentDto){
     const stack = await this.stackRepository.findOne({where: {sId: createComponentDto.sId}, relations:['project']});
     if(!stack || stack.project.userId!==createComponentDto.userId){
@@ -231,7 +296,24 @@ export class ProjectService {
     return project;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} project`;
+  async deleteProject(projectId: string, commonDto: CommonUserIdDto) {
+    const project = await this.projectRepository.findOne({where: {projectId: projectId, userId: commonDto.userId}});
+    if (!project) {
+      throw new HttpException('Project not found', HttpStatus.NOT_FOUND);
+    }
+    await this.projectRepository.remove(project);
+    if(this.kafkaManager.checkRunningConsumer(projectId)){
+      await this.kafkaManager.stopIfRunningConsumer(projectId);
+    }
+    return "Project deleted successfully";
+  }
+
+  async deleteComponent(projectId: string, sId: string, signatureId: string, componentId: string, commonDto: CommonUserIdDto) {
+    const component = await this.componentRepository.findOne({where: {componentId: componentId},relations:["stack", "stack.project"]});
+    if(!component || component.stack.sId!==sId || component.stack.project.userId!==commonDto.userId || component.stack.projectId!==projectId || component.signatureId!==signatureId){
+      throw new HttpException('Component not found or you are not authorized to access it.', HttpStatus.BAD_REQUEST);
+    }
+    await this.componentRepository.remove(component);
+    return "Component deleted successfully";
   }
 }

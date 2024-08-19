@@ -10,7 +10,7 @@ export class UserIdGuard implements CanActivate {
     
     let userIdFromRequest: string | undefined;
 
-    if (request.method === 'GET') {
+    if (request.method === 'GET' || request.method === 'DELETE') {
       userIdFromRequest = request.query.userId as string;
     } else {
       userIdFromRequest = request.body.userId;
