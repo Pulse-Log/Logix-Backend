@@ -20,13 +20,13 @@ async function runConsumer() {
 function createKafkaInstance(connectionString, username, password) {
     return new Kafka({
         brokers: [connectionString],
-        // ssl: true,
-        // sasl: {
-        //     mechanism: 'plain',
-        //     username: username,
-        //     password: password,
-        // },
-        // connectionTimeout: 3000,
+        ssl: true,
+        sasl: {
+            mechanism: 'plain',
+            username: username,
+            password: password,
+        },
+        connectionTimeout: 3000,
         logLevel: logLevel.INFO,
         retry: {
             'retries': 6
