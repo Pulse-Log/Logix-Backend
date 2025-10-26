@@ -12,27 +12,26 @@ import * as cors from 'cors';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true
+      isGlobal: true,
     }),
-    
+
     TypeOrmModule.forRootAsync({
-      useFactory:(configService: ConfigService)=>({
-        type: configService.get('DATABASE_TYPE'),
-      url:configService.get('DATABASE_URL'),
-      database: configService.get('DATABASE_NAME'),
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.NODE_ENV==='development'? true : null,
-      logging:true,
-      ssl: true,
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres' as const,
+        url: configService.get<string>('DATABASE_URL'),
+        database: configService.get<string>('DATABASE_NAME'),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        synchronize: process.env.NODE_ENV === 'development' ? true : null,
+        logging: true,
+        ssl: true,
       }),
-      inject:[ConfigService]
-      
+      inject: [ConfigService],
     }),
-    
+
     ProjectModule,
-    
+
     KafkaConsumerManagerModule,
-    
+
     LogSocketModule,
   ],
   controllers: [AppController],
@@ -46,7 +45,7 @@ export class AppModule implements NestModule {
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
       credentials: true, // Enable passing cookies, if needed
     };
-    
+
     consumer.apply(cors(corsOptions)).forRoutes('*');
   }
 }
