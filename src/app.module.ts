@@ -41,7 +41,7 @@ export class AppModule implements NestModule {
   constructor(private configService: ConfigService) {}
   configure(consumer: MiddlewareConsumer) {
     const corsOptions = {
-      origin: this.configService.get('CORS_ORIGIN'), // Replace with your frontend app's URL
+      origin: '*', // Replace with your frontend app's URL
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
       credentials: true, // Enable passing cookies, if needed
     };
